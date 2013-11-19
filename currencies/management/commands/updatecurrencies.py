@@ -40,7 +40,7 @@ class Command(NoArgsCommand):
 				print("Warning: Could not find rates for %s (%s)" % (currency, currency.code))
 				continue
 
-			rate = Decimal(d["rates"][currency.code]).quantize(Decimal(".0001"))
+			rate = Decimal(str(d["rates"][currency.code])).quantize(Decimal(".0001"))
 			if currency.factor != rate:
 				print("Updating %s rate to %f" % (currency, rate))
 				currency.factor = rate
