@@ -1,6 +1,5 @@
 from django import template
 from django.template.defaultfilters import stringfilter
-from currencies.models import Currency
 from currencies.utils import calculate_price, convert
 
 register = template.Library()
@@ -25,6 +24,7 @@ class ChangeCurrencyNode(template.Node):
         except template.VariableDoesNotExist:
             return ''
 
+
 @register.tag(name='change_currency')
 def change_currency(parser, token):
     try:
@@ -36,6 +36,5 @@ def change_currency(parser, token):
 
 
 @register.simple_tag(name='currency_convert')
-def my_tag(amount, from_, to_, *args, **kwargs):
+def currency_convert(amount, from_, to_, *args, **kwargs):
     return convert(amount, from_, to_)
-    
