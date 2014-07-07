@@ -1,7 +1,6 @@
 from django import template
 from django.template.defaultfilters import stringfilter
-from currencies.models import Currency
-from currencies.utils import calculate_price
+from currencies.utils import calculate_price, convert
 
 register = template.Library()
 
@@ -34,3 +33,8 @@ def change_currency(parser, token):
         tag_name = token.contents.split()[0]
         raise template.TemplateSyntaxError('%r tag requires exactly two arguments' % (tag_name))
     return ChangeCurrencyNode(current_price, new_currency)
+
+
+@register.simple_tag(name='currency_convert')
+def currency_convert(amount, from_, to_, *args, **kwargs):
+    return convert(amount, from_, to_)
