@@ -45,4 +45,7 @@ setup(name='django-currencies',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Topic :: Utilities'],
+    install_requires=[
+        'django-simple-history',
+    ],
     )

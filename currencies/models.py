@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from simple_history.models import HistoricalRecords
 
 
 class Currency(models.Model):
@@ -14,6 +15,7 @@ class Currency(models.Model):
         help_text=_('Make this the base currency against which rates are calculated.'))
     is_default = models.BooleanField(_('default'), default=False,
         help_text=_('Make this the default user currency.'))
+    history = HistoricalRecords()
 
     class Meta:
         ordering = ('name', )
