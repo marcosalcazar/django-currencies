@@ -2,10 +2,14 @@ from currencies.models import Currency
 
 
 def currencies(request):
-    currencies = Currency.objects.all()
-    currencies_active = Currency.objects.filter(is_active=True).all()
-    if not request.session.get('currency_id'):
-        request.session['currency_id'] = Currency.objects.get(is_default__exact=True).id
+    currencies = Currency.objects.active()
+
+    if not request.session.get('currency'):
+        try:
+            currency = Currency.objects.get(is_default__exact=True)
+        except Currency.DoesNotExist:
+            currency = None
+        request.session['currency'] = currency
 
     return {
         'CURRENCIES': currencies,

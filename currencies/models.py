@@ -3,6 +3,11 @@ from django.utils.translation import gettext_lazy as _
 from simple_history.models import HistoricalRecords
 
 
+class CurrencyManager(models.Manager):
+    def active(self):
+        return self.get_query_set().filter(is_active=True)
+
+
 class Currency(models.Model):
     code = models.CharField(_('code'), max_length=3)
     name = models.CharField(_('name'), max_length=35)
@@ -16,6 +21,8 @@ class Currency(models.Model):
     is_default = models.BooleanField(_('default'), default=False,
         help_text=_('Make this the default user currency.'))
     history = HistoricalRecords()
+
+    objects = CurrencyManager()
 
     class Meta:
         ordering = ('name', )
@@ -32,3 +39,11 @@ class Currency(models.Model):
         if self.is_default:
             Currency.objects.filter(is_default=True).update(is_default=False)
         super(Currency, self).save(**kwargs)
+
+    def to_base(self, price):
+        from . import utils
+        return utils.price_to_base(price, self)
+
+    @classmethod
+    def price_to_base(cls, price, code):
+        return cls.objects.get(code__exact=code).to_base(price)

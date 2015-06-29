@@ -15,7 +15,7 @@ def calculate_price(price, currency):
 
     return price.quantize(Decimal("0.01"), rounding=ROUND_UP)
 
-    
+
 def convert(amount, from_, to):
     if from_==to:
       return amount
@@ -25,3 +25,12 @@ def convert(amount, from_, to):
     amount = amount * (to_currency.factor / from_currency.factor)  
     
     return amount.quantize(Decimal("0.01"), rounding=ROUND_UP)
+
+
+def price_to_base(price, currency):
+    price = Decimal(price)
+
+    # Convert from the given currency to the base currency
+    price = price / currency.factor
+
+    return price.quantize(Decimal("0.01"), rounding=ROUND_UP)
