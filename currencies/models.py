@@ -34,7 +34,7 @@ class Currency(models.Model):
         verbose_name = _('currency')
         verbose_name_plural = _('currencies')
 
-    def __unicode__(self):
+    def __str__(self):
         return self.code
 
     def save(self, **kwargs):
