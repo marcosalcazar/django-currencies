@@ -1,36 +1,41 @@
-from decimal import Decimal, ROUND_UP
-from currencies.models import Currency
+# -*- coding: utf-8 -*-
+
+from decimal import Decimal as D, ROUND_UP
+
+from .models import Currency as C
+from .conf import SESSION_KEY
 
 
-def calculate_price(price, currency):
-    price = Decimal(price)
-    currency = Currency.objects.get(code__exact=currency)
-    default = Currency.objects.get(is_default=True)
+def calculate(price, code):
+    to, default = C.active.get(code=code), C.active.default()
 
-    # First, convert from the default currency to the base currency
-    price = price / default.factor
+    # First, convert from the default currency to the base currency,
+    # then convert from the base to the given currency
+    price = (D(price) / default.factor) * to.factor
 
-    # Now, convert from the base to the given currency
-    price = price * currency.factor
-
-    return price.quantize(Decimal("0.01"), rounding=ROUND_UP)
+    return price.quantize(D("0.01"), rounding=ROUND_UP)
 
 
-def convert(amount, from_, to):
-    if from_==to:
+def convert(amount, from_code, to_code):
+    if from_code == to_code:
       return amount
-    amount = Decimal(amount)
-    from_currency = Currency.objects.get(code__exact=from_)
-    to_currency = Currency.objects.get(code__exact=to)
-    amount = amount * (to_currency.factor / from_currency.factor)  
-    
-    return amount.quantize(Decimal("0.01"), rounding=ROUND_UP)
+
+    from_, to = C.active.get(code=from_code), C.active.get(code=to_code)
+
+    amount = D(amount) * (to.factor / from_.factor)
+    return amount.quantize(D("0.01"), rounding=ROUND_UP)
 
 
-def price_to_base(price, currency):
-    price = Decimal(price)
+def get_currency_code(request):
+    for attr in ('session', 'COOKIES'):
+        if hasattr(request, attr):
+            try:
+                return getattr(request, attr)[SESSION_KEY]
+            except KeyError:
+                continue
 
-    # Convert from the given currency to the base currency
-    price = price / currency.factor
-
-    return price.quantize(Decimal("0.01"), rounding=ROUND_UP)
+    # fallback to default...
+    try:
+        return C.active.default().code
+    except C.DoesNotExist:
+        return None  # shit happens...

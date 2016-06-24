@@ -1,18 +1,23 @@
-from currencies.models import Currency
+# -*- coding: utf-8 -*-
+
+from .models import Currency
+from .utils import get_currency_code
+from .conf import SESSION_KEY
 
 
 def currencies(request):
-    currencies = Currency.objects.active()
+    # make sure that currency was initialized
+    if not SESSION_KEY in request.session or request.session.get(SESSION_KEY) is None:
+        request.session[SESSION_KEY] = get_currency_code(False)
 
-    if not request.session.get('currency'):
-        try:
-            currency = Currency.objects.get(is_default__exact=True)
-        except Currency.DoesNotExist:
-            currency = None
-        request.session['currency'] = currency
+    try:
+        currency = Currency.active.get(
+            code__iexact=request.session[SESSION_KEY])
+    except Currency.DoesNotExist:
+        currency = None
 
     return {
-        'CURRENCIES': currencies,
-        'CURRENCIES_ACTIVE': currencies_active,
-        'CURRENCY': Currency.objects.get(pk=request.session['currency_id'])
+        'CURRENCIES': Currency.active.all(),  # get all active currencies
+        'CURRENCY_CODE': request.session[SESSION_KEY],
+        'CURRENCY': currency,  # for a backward compatibility
     }
