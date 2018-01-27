@@ -22,6 +22,7 @@ if 'sdist' in sys.argv or 'develop' in sys.argv:
     os.chdir('currencies')
     try:
         from django.core import management
+
         management.call_command('compilemessages', stdout=sys.stderr, verbosity=1)
     except ImportError:
         if 'sdist' in sys.argv:
@@ -50,11 +51,13 @@ setup(
 
     install_requires=[
         'django>=1.4.2',
-        'django-simple-history',
+        'jsonfield>=1.0.3',
+        'django-simple-history>=1.9.0'
     ],
-    requires=[
-        'Django (>=1.4.2)',
-    ],
+    # requires=[
+    #    'Django (>=1.4.2)',
+    #    'django-jsonfield (>=1.0.3)',
+    # ],
 
     description='Adds support for multiple currencies as a Django application.',
     long_description=read('README.rst'),

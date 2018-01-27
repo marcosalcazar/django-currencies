@@ -1,30 +1,35 @@
 # -*- coding: utf-8 -*-
 
 from django.db import models
+from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import gettext_lazy as _
+from jsonfield.fields import JSONField
 from simple_history.models import HistoricalRecords
 
 from .managers import CurrencyManager
 
 
+@python_2_unicode_compatible
 class Currency(models.Model):
-
     code = models.CharField(_('code'), max_length=3,
                             unique=True, db_index=True)
     name = models.CharField(_('name'), max_length=35,
-                            unique=True, db_index=True)
+                            db_index=True)
     symbol = models.CharField(_('symbol'), max_length=4, blank=True,
                               db_index=True)
     factor = models.DecimalField(_('factor'), max_digits=30, decimal_places=10, default=1.0,
-        help_text=_('Specifies the difference of the currency to default one.'))
+                                 help_text=_('Specifies the difference of the currency to default one.'))
 
     is_active = models.BooleanField(_('active'), default=True,
-        help_text=_('The currency will be available.'))
+                                    help_text=_('The currency will be available.'))
     is_base = models.BooleanField(_('base'), default=False,
-        help_text=_('Make this the base currency against which rates are calculated.'))
+                                  help_text=_('Make this the base currency against which rates are calculated.'))
     is_default = models.BooleanField(_('default'), default=False,
-        help_text=_('Make this the default user currency.'))
+                                     help_text=_('Make this the default user currency.'))
     history = HistoricalRecords()
+
+    # Used to store other available information about a currency
+    info = JSONField(blank=True, default={})
 
     objects = models.Manager()
     active = CurrencyManager()
