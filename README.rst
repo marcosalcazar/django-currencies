@@ -1,12 +1,18 @@
 django-currencies
 =================
 
+.. image:: https://travis-ci.org/panosl/django-currencies.svg?branch=master
+    :target: https://travis-ci.org/panosl/django-currencies
+.. image:: https://codecov.io/gh/panosl/django-currencies/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/panosl/django-currencies
+
+
 django-currencies allows you to define different currencies, and
 includes template tags/filters to allow easy conversion between them.
 
-For more details, see the `documentation <http://django-currencies.readthedocs.org/en/latest/>`_ at Read The Docs.
+For more details, see the `documentation <https://django-currencies.readthedocs.org/en/latest/>`_ at Read The Docs.
 
-Authored by `Panos Laganakos <http://panoslaganakos.com/>`_, and some great
+Authored by `Panos Laganakos <https://panoslaganakos.com/>`_, and some great
 `contributors <https://github.com/panosl/django-currencies/contributors>`_.
 
 Installation
@@ -18,7 +24,8 @@ Installation
 
        pip install django-currencies
 
-2. You'll need to add ``currencies`` to ``INSTALLED_APPS`` in your project's settings file:
+#. You'll need to add ``currencies`` to ``INSTALLED_APPS`` in your project's
+   settings file:
 
    .. code-block:: python
 
@@ -33,7 +40,7 @@ Installation
                'south',
            )
 
-3a. Either have the ``currencies.context_processors.currencies`` processor:
+#. Either have the ``currencies.context_processors.currencies`` processor:
 
    .. code-block:: python
 
@@ -42,14 +49,15 @@ Installation
            'currencies.context_processors.currencies',
        )
 
-3b. Or use the template tag ``currency_context``:
+
+#. Or use the template tag ``currency_context``:
 
    .. code-block:: html+django
 
        {% load currency %}
        {% currency_context %}
 
-4. Update your ``urls.py`` file :
+#. Update your ``urls.py`` file :
 
    .. code-block:: python
 
@@ -57,14 +65,7 @@ Installation
            url(r'^currencies/', include('currencies.urls')),
        )
 
-Then run ``./manage.py syncdb`` to create the required database tables
-
-Please see ``example`` application. This application is used to
-manually test the functionalities of this package. This also serves as
-a good example.
-
-You need Django 1.4 or above to run that. It might run on older
-versions but that is not tested.
+Then run ``./manage.py migrate`` to create the required database tables
 
 Upgrading from 0.3.3
 ~~~~~~~~~~~~~~~~~~~~
@@ -81,17 +82,18 @@ Configuration
 -------------
 
 django-currencies has built-in integration with
-`openexchangerates.org <http://openexchangerates.org/>`_,
-`Yahoo Finance <http://finance.yahoo.com/currency-converter/>`_ and
-`Currency ISO <http://www.currency-iso.org/>`_.
+`openexchangerates.org <https://openexchangerates.org/>`_,
+`Yahoo Finance <https://finance.yahoo.com/currency-converter/>`_ and
+`Currency ISO <https://www.currency-iso.org/>`_.
 
 **Management Commands**
 
 You can use the management commands ``currencies`` and ``updatecurrencies``
 to maintain the currencies in the database. The former will import any
-currencies that are defined on the selected source. The latter will update
-all the database currencies against the rates returned by the source. Any
-currency missing on the source will be left untouched.
+currencies that are defined on the selected source into the database.
+This includes information like the currency code, name, symbol, and any
+other info provided. The latter will update all the database currency
+rates from the source. Any currency missing on the source will be untouched.
 
 You can selectively import currencies, for example the commands below
 will import USD and EUR currencies only, or use a variable from the
@@ -115,8 +117,8 @@ exchange rates by specifying the ``--base`` switch like so:
     ./manage.py updatecurrencies oxr --base=USD
     ./manage.py updatecurrencies yahoo -b SHOP_DEFAULT_CURRENCY
 
-The command automatically looks for variables CURRENCIES_BASE or SHOP_DEFAULT_CURRENCY
-in settings if ``-b`` is not specified.
+The command automatically looks for variables CURRENCIES_BASE or
+SHOP_DEFAULT_CURRENCY in settings if ``-b`` is not specified.
 
 **OpenExchangeRates**
 
@@ -129,37 +131,44 @@ You will need to specify your API key in your settings file:
 
     OPENEXCHANGERATES_APP_ID = "c2b2efcb306e075d9c2f2d0b614119ea"
 
-Requirements: `requests <http://docs.python-requests.org/en/master/>`_
+Requirements: `requests <https://docs.python-requests.org/en/master/>`__
 (python3-compatible fork of `OpenExchangeRatesClient <https://github.com/metglobal/openexchangerates>`_
 is integrated due to abandoned project)
 
 **Yahoo Finance**
 
+.. attention::
+
+    Yahoo integration is now deprecated due to withdrawal of the service around 6 Feb 2018 due to purchase by Verizon.
+    The cached currency json file will continue to be available through the ``currencies`` command however.
+
 Select this source by specifying ``yahoo`` as positional argument.
 
 Requirements: `BeautifulSoup4 <https://www.crummy.com/software/BeautifulSoup/bs4/doc/>`_
-and `requests <http://docs.python-requests.org/en/master/>`_
+and `requests <https://docs.python-requests.org/en/master/>`__
 
 **Currency ISO**
 
 Select this source by specifying ``iso`` as positional argument.
 
-Requirements: `requests <http://docs.python-requests.org/en/master/>`_
+Requirements: `requests <https://docs.python-requests.org/en/master/>`__
 
-===========  ==========  =====  =======  ==========
-Integration               Live Feeds
------------  --------------------------------------
-..           Currencies  Rates  Symbols  Other Info
-===========  ==========  =====  =======  ==========
-    oxr          |T|      |T|
-   yahoo         |T|      |T|     |T|       |T|
-    iso          |T|              |T|       |T|
-===========  ==========  =====  =======  ==========
+===========  ==========  =============  ==========  ==========
+Integration                    Live Feeds
+-----------  -------------------------------------------------
+..           Currencies      Rates       Symbols    Other Info
+===========  ==========  =============  ==========  ==========
+    oxr          ✅            ✅            ✅ *
+   yahoo         ✅            ✘            ✅           ✅
+    iso          ✅                                     ✅
+===========  ==========  =============  ==========  ==========
 
 .. |T| unicode:: U+2705 .. ticked
 
-Other info includes ISO4217 number and exponent, country and city names, and alternative
-currency names.
+| \* Symbols are imported from the file ``currencies.json`` because it is not
+| supported by the service. Other info includes ISO4217 number and exponent,
+| country and city names, and alternative
+  currency names.
 
 Usage
 -----
@@ -175,7 +184,7 @@ Use:
 .. code-block:: html+django
 
     {% change_currency [price] [currency_code] %}
-    
+
 for example:
 
 .. code-block:: html+django
@@ -197,7 +206,8 @@ for example:
 
     {{ product.price|currency:"USD" }}
 
-or set the ``CURRENCY_CODE`` context variable with a ``POST`` to the included view:
+or set the ``CURRENCY_CODE`` context variable with a ``POST`` to the included
+view:
 
 .. code-block:: html+django
 
@@ -209,14 +219,15 @@ or use the template tag ``currency_context``:
 
     {% currency_context %}
 
-which gives the three context variables: ``CURRENCIES``, ``CURRENCY_CODE`` and ``CURRENCY``.
+which gives the three context variables: ``CURRENCIES``, ``CURRENCY_CODE`` and
+``CURRENCY``.
 
 **Template**
 
-Included is a template for a Bootstrap 3 & fontawesome compatible navbar currency
-chooser. The navbar item will display if there are more than 1 active currencies.
-There is a navbar parameter ``dropdown_extra_class`` which is used to supply extra classes
-to the dropdown:
+Included is a template for a Bootstrap 3 & fontawesome compatible navbar
+currency chooser. The navbar item will display if there are more than 1 active
+currencies. There is a navbar parameter ``dropdown_extra_class`` which is used
+to supply extra classes to the dropdown:
 
 .. code-block:: html+django
 
@@ -228,7 +239,7 @@ to the dropdown:
             {% include "currencies/navbar/currency-chooser-bs3fa.html" %}
             {% endwith %}
 
-.. note::
+.. attention::
 
     The currency choice may not be reflected on the navbar if your view is not re-rendered.
     This may be the case if you are viewing a default page in Django CMS for example.
@@ -239,3 +250,4 @@ License
 -------
 
 ``django-currencies`` is released under the BSD license.
+

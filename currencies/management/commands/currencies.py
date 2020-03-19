@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
+import logging
+from datetime import datetime
 from collections import OrderedDict
 from importlib import import_module
 from django.conf import settings
 from django.core.management.base import BaseCommand
+from django.core.exceptions import ImproperlyConfigured
 from ...models import Currency
 
 
@@ -16,6 +19,9 @@ sources = OrderedDict([
     #('google', '._googlecalculator.py'),
     #('ecb', '._europeancentralbank.py'),
 ])
+
+
+logger = logging.getLogger("django.currencies")
 
 
 class Command(BaseCommand):
@@ -43,42 +49,67 @@ class Command(BaseCommand):
         See if we have been passed a set of currencies or a setting variable
         or look for settings CURRENCIES or SHOP_CURRENCIES.
         """
-        if not option:
-            for attr in ('CURRENCIES', 'SHOP_CURRENCIES'):
-                try:
-                    return getattr(settings, attr)
-                except AttributeError:
-                    continue
-            self.stderr.write("Importing all. Some currencies may be out-of-date (MTL) or spurious (XPD)")
-            return option
-        elif len(option) == 1 and option[0].isupper() and len(option[0]) != 3:
-            return getattr(settings, option[0])
-        else:
-            return [e for e in option if e]
+        if option:
+            if len(option) == 1 and option[0].isupper() and len(option[0]) > 3:
+                return getattr(settings, option[0])
+            else:
+                codes = [e for e in option if e.isupper() and len(e) == 3]
+                if len(codes) != len(option):
+                    raise ImproperlyConfigured("Invalid currency codes found: %s" % codes)
+                return codes
+        for attr in ('CURRENCIES', 'SHOP_CURRENCIES'):
+            try:
+                return getattr(settings, attr)
+            except AttributeError:
+                continue
+        return option
 
-    verbose = 0
-    def info(self, msg):
-        """Only print if verbose >= 1"""
-        if self.verbose:
-            self.stdout.write(msg)
+    @property
+    def verbosity(self):
+        return getattr(self, '_verbosity', logging.INFO)
+
+    @verbosity.setter
+    def verbosity(self, value):
+        self._verbosity = {
+            0: logging.ERROR,
+            1: logging.INFO,
+            2: logging.DEBUG,
+            3: 0
+        }.get(value)
+
+    def log(self, lvl, msg, *args, **kwargs):
+        """Both prints to stdout/stderr and the django.currencies logger"""
+        logger.log(lvl, msg, *args, **kwargs)
+
+        if lvl >= self.verbosity:
+            if args:
+                fmsg = msg % args
+            else:
+                fmsg = msg % kwargs
+
+            if lvl >= logging.WARNING:
+                self.stderr.write(fmsg)
+            else:
+                self.stdout.write(fmsg)
 
     def get_handler(self, options):
         """Return the specified handler"""
         # Import the CurrencyHandler and get an instance
         handler_module = import_module(sources[options[self._source_param]], self._package_name)
-        return handler_module.CurrencyHandler(self.info, self.stderr.write)
+        return handler_module.CurrencyHandler(self.log)
 
     def handle(self, *args, **options):
         """Handle the command"""
         # get the command arguments
-        self.verbose = int(options.get('verbosity', 0))
+        self.verbosity = int(options.get('verbosity', 1))
         force = options['force']
         imports = self.get_imports(options['import'])
 
         # Import the CurrencyHandler and get an instance
         handler = self.get_handler(options)
 
-        self.info("Getting currency data from %s" % handler.endpoint)
+        self.log(logging.INFO, "Getting currency data from %s", handler.endpoint)
+        timestamp = datetime.now().isoformat()
 
         # find available codes
         if imports:
@@ -87,6 +118,7 @@ class Command(BaseCommand):
             available = reqcodes & allcodes
             unavailable = reqcodes - allcodes
         else:
+            self.log(logging.WARNING, "Importing all. Some currencies may be out-of-date (MTL) or spurious (XPD)")
             available = handler.get_allcurrencycodes()
             unavailable = None
 
@@ -98,27 +130,31 @@ class Command(BaseCommand):
                 kwargs = {}
                 if created:
                     kwargs['is_active'] = False
-                    self.info("Creating %s" % description)
+                    msg = "Creating %s"
+                    obj.info.update( {'Created': timestamp} )
                 else:
-                    self.info("Updating %s" % description)
+                    msg = "Updating %s"
+                obj.info.update( {'Modified': timestamp} )
+
                 if name:
                     kwargs['name'] = name
+
                 symbol = handler.get_currencysymbol(code)
                 if symbol:
                     kwargs['symbol'] = symbol
+
                 try:
-                    infodict = handler.get_info(code)
+                    obj.info.update(handler.get_info(code))
                 except AttributeError:
                     pass
-                else:
-                    if infodict:
-                        obj.info.update(infodict)
-                        kwargs['info'] = obj.info
 
+                kwargs['info'] = obj.info
+
+                self.log(logging.INFO, msg, description)
                 Currency._default_manager.filter(pk=obj.pk).update(**kwargs)
-
             else:
-                self.info("Skipping %s" % description)
+                msg = "Skipping %s"
+                self.log(logging.INFO, msg, description)
 
         if unavailable:
-            self.stderr.write("Currencies %s not found in source." % unavailable)
+            raise ImproperlyConfigured("Currencies %s not found in %s source" % (unavailable, handler.name))

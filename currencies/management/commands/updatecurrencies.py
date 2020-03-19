@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
+import logging
+from datetime import datetime
 from decimal import Decimal
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 
 from .currencies import Command as CurrencyCommand
 from ...models import Currency
@@ -22,23 +25,24 @@ class Command(CurrencyCommand):
         Parse the base command option. Can be supplied as a 3 character code or a settings variable name
         If base is not supplied, looks for settings CURRENCIES_BASE and SHOP_DEFAULT_CURRENCY
         """
-        if isinstance(option, str) and option.isupper():
-            if len(option) == 3:
-                return option, True
-            else:
-                return getattr(settings, option), True
-        else:
-            for attr in ('CURRENCIES_BASE', 'SHOP_DEFAULT_CURRENCY'):
-                try:
-                    return getattr(settings, attr), True
-                except AttributeError:
-                    continue
-            return 'USD', False
+        if option:
+            if option.isupper():
+                if len(option) > 3:
+                    return getattr(settings, option), True
+                elif len(option) == 3:
+                    return option, True
+            raise ImproperlyConfigured("Invalid currency code found: %s" % option)
+        for attr in ('CURRENCIES_BASE', 'SHOP_DEFAULT_CURRENCY'):
+            try:
+                return getattr(settings, attr), True
+            except AttributeError:
+                continue
+        return 'USD', False
 
     def handle(self, *args, **options):
         """Handle the command"""
         # get the command arguments
-        self.verbose = int(options.get('verbosity', 0))
+        self.verbosity = int(options.get('verbosity', 1))
         base, base_was_arg = self.get_base(options['base'])
 
         # Import the CurrencyHandler and get an instance
@@ -62,11 +66,11 @@ class Command(CurrencyCommand):
                 base_obj = Currency._default_manager.get(code=base)
             except Currency.DoesNotExist:
                 base_in_db = False
-                self.stderr.write(
+                raise ImproperlyConfigured(
                     "Base currency %r does not exist in the db! Rates will be erroneous without it." % base)
 
         if db_base and base_was_arg and base_in_db and (db_base != base):
-            self.info("Changing db base currency from %s to %s" % (db_base, base))
+            self.log(logging.INFO, "Changing db base currency from %s to %s", db_base, base)
             db_base_obj.is_base = False
             db_base_obj.save()
             base_obj.is_base = True
@@ -75,36 +79,39 @@ class Command(CurrencyCommand):
             base_obj.is_base = True
             base_obj.save()
 
-        self.info("Using %s as base for all currencies" % base)
-        self.info("Getting currency rates from %s" % handler.endpoint)
+        self.log(logging.INFO, "Using %s as base for all currencies", base)
+        self.log(logging.INFO, "Getting currency rates from %s", handler.endpoint)
+        timestamp = datetime.now().isoformat()
 
         obj = None
         for obj in Currency._default_manager.all():
             try:
                 rate = handler.get_ratefactor(base, obj.code)
             except AttributeError:
-                self.stderr.write("This source does not provide currency rate information")
+                self.log(logging.CRITICAL, "%s source does not provide currency rate information", handler.name)
                 return
-            if not rate:
-                self.stderr.write("Could not find rates for %s (%s)" % (obj.name, obj.code))
-                continue
+            except RuntimeError as e:
+                self.log(logging.ERROR, str(e))
+                return
 
             factor = rate.quantize(Decimal(".0001"))
             if obj.factor != factor:
                 kwargs = {'factor': factor}
                 try:
-                    datetime = handler.get_ratetimestamp(base, obj.code)
+                    ratetimestamp = handler.get_ratetimestamp(base, obj.code)
                 except AttributeError:
-                    datetime = None
-                if datetime:
-                    obj.info.update({'RateUpdate': datetime.isoformat()})
-                    kwargs['info'] = obj.info
-                    update_str = ", updated at %s" % datetime.strftime("%Y-%m-%d %H:%M:%S")
+                    ratetimestamp = None
+                if ratetimestamp:
+                    obj.info.update( {'RateUpdate': ratetimestamp.isoformat()} )
+                    update_str = ", source timestamp %s" % ratetimestamp.strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     update_str = ""
 
-                self.info("Updating %s rate to %f%s" % (obj, factor, update_str))
+                obj.info.update( {'RateModified': timestamp} )
+                kwargs['info'] = obj.info
+
+                self.log(logging.INFO, "Updating %r rate to %s%s", obj.name, factor, update_str)
 
                 Currency._default_manager.filter(pk=obj.pk).update(**kwargs)
         if not obj:
-            self.stderr.write("No currencies found in the db to update; try the currencies command!")
+            self.log(logging.ERROR, "No currencies found in the db to update; try the currencies command!")
